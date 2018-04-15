@@ -1,103 +1,82 @@
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <stdint.h>
-#include <assert.h>
 #include "serial.h"
 
-void setParams(int argc, char **argv, char **image, int *width, int *height,  color_t *imageType) {
-	if (argc == 5 && !strcmp(argv[4], "grey")) {
-		*image = (char *)malloc((strlen(argv[1])+1) * sizeof(char));
-		strcpy(*image, argv[1]);	
+void setParams(int argc, char **argv, int *width, int *height, int* val) {
+	if (argc == 5 && !strcmp(argv[4], "gray")) {
 		*width = atoi(argv[2]);
 		*height = atoi(argv[3]);
-		*imageType = GREY;
+		*val = 1;
 	} else if (argc == 5 && !strcmp(argv[4], "rgb")) {
-		*image = (char *)malloc((strlen(argv[1])+1) * sizeof(char));
-		strcpy(*image, argv[1]);	
 		*width = atoi(argv[2]);
 		*height = atoi(argv[3]);
-		*imageType = RGB;
+		*val = 3;
 	} else {
-		fprintf(stderr, "Error Input!\n%s image_name width height [rgb/grey].\n", argv[0]);
-		exit(EXIT_FAILURE);
+		fprintf(stderr, "Incorrect Input!\n");
 	}
 }
 
-void convolve_RGB(uint8_t* src, uint8_t* dst, int width, int height){
-	int div = 1;
-    float f[3][3] = {{1/div, 1/div, 1/div}, {1/div, 1/div, 1/div}, {1/div, 1/div, 1/div}};
-    int rows = height;
-	int cols = width;
-	int i = 0;
-	int j = 0;
-	int k = 0;
-	int l = 0;
-	float r = 0;
-	float g = 0;
-	float b = 0;
-	float pixel = 0;
-	for (i = 0; i < rows; i++){
-		for (j = 0; j < cols; j++){
-			r = 0;
-			g = 0;
-			b = 0;
-			for(k = -1; k < 1; k++){
-				for(l = -1; l < 1; l++){
-					if (i > k && j >l){
-						r += src[(rows*3*(i-k))+j] *f[k][l];
-						g += src[(rows*3*(i-k))+j+1] *f[k][l];
-						b += src[(rows*3*(i-k))+j+2] *f[k][l];
-					}
-				}
+
+void conv_RGB(uint8_t*src, uint8_t* dst, int x, int y, int width, int height){
+	float div = 9;
+    //float kernel[3][3] = {{0/div, 0/div, 0/div}, {0/div, 1/div, 0/div}, {0/div, 0/div, 0/div}};
+    //float kernel[3][3] = {{1/div, 1/div, 1/div}, {1/div, 1/div, 1/div}, {1/div, 1/div, 1/div}};
+    float kernel[3][3] = {{0, -1, 0}, {-1, 5, -1}, {0, -1, 0}};
+	int rr = 0;
+	int c = 0;
+	int kr = 0;
+	int kc = 0;
+	float r = 0, g = 0, b = 0;
+	for (rr = x-1, kr = 0 ; rr <= x+1 ; rr++, kr++){
+		for (c = y-3, kc = 0 ; c <= y+3 ; c+=3, kc++){
+			if (width*rr+c >= 0){
+				r += ((float)src[width * rr + c]* kernel[kr][kc]);
+				g += ((float)src[width * rr + c+1] * kernel[kr][kc]);
+				b += ((float)src[width * rr + c+2] * kernel[kr][kc]);
 			}
-		    dst[(i*cols)+(j*3)] = r;
-		    dst[(i*cols)+(j*3)+1] = g;
-		    dst[(i*cols)+(j*3)+2] = b;
+		}
+	}
+	dst[width * x + y] = r;
+	dst[width * x + y+1] = g;
+	dst[width * x + y+2] = b;
+}
+
+	
+void convolve_RGB(uint8_t* src, uint8_t* dst, int width, int height){
+	int x = 0;
+	int y = 0;
+	for (x = 0; x < height; x++){
+		for (y = 0; y < width; y++){
+			conv_RGB(src, dst, x, y*3, width*3, height);
 		}
 	}
 }
+
 
 void convolve_G(uint8_t* src, uint8_t*dst, int width, int height){
-    float f[3][3] = {{1/9, 1/9, 1/9}, {2/9, 4/9, 2/9}, {1/9, 2/9, 1/9}};
-    int rows = height;
-	int cols = width;
-	int i = 0;
-	int j = 0;
-	int k = 0;
-	int l = 0;
-	float total = 0;
-	float pixel = 0;
-	for (i = 0; i < rows; i++){
-		for (j = 0; j < cols; j++){
-			total = 0;
-			for(k = -1; k < 1; k++){
-				for(l = -1; l < 1; l++){
-					if (i > k && j >l){
-						pixel = src[(rows*(i-k))+(j-l)];
-						total += f[k][l]*pixel;
+	float div = 9;
+    //float kernel[3][3] = {{0/div, 0/div, 0/div}, {0/div, 1/div, 0/div}, {0/div, 0/div, 0/div}};
+    //float kernel[3][3] = {{1/div, 1/div, 1/div}, {1/div, 1/div, 1/div}, {1/div, 1/div, 1/div}};
+    float kernel[3][3] = {{0, -1, 0}, {-1, 5, -1}, {0, -1, 0}};
+	int r = 0;
+	int c = 0;
+	int kr = 0;
+	int kc = 0;
+
+ 	int x = 0;
+	int y = 0;
+	for (x = 0; x < height; x++){
+		for (y = 0; y < width; y++){
+			float total = 0;
+			for (r = x-1, kr = 0 ; r <= x+1 ; r++, kr++){
+				for (c = y-3, kc = 0 ; c <= y+3 ; c+=3, kc++){
+					if (width*r+c >= 0){
+						total += ((float)src[width * r + c]* kernel[kr][kc]);
 					}
 				}
 			}
-		    dst[(i*cols)+j] = total;
+			dst[width * x + y] = total;
 		}
 	}
 }
 
-int write_all(int fd , uint8_t* buff , int size) {
-	int n, sent;
-	for (sent = 0 ; sent < size ; sent += n)
-		if ((n = write(fd, buff + sent, size - sent)) == -1)
-			return -1;
-	return sent;
-}
-
-int read_all(int fd , uint8_t* buff , int size) {
-	int n, sent;
-	for (sent = 0 ; sent < size ; sent += n)
-		if ((n = read(fd, buff + sent, size - sent)) == -1)
-			return -1;
-	return sent;
-}
