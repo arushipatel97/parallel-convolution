@@ -3,6 +3,7 @@
 #include "serial.h"
 #include <stdlib.h>
 #include <assert.h>
+#include "omp.h"
 
 void setParams(int argc, char **argv, int *width, int *height, int* val, int* iter) {
 	if (argc == 6 && !strcmp(argv[4], "gray")) {
@@ -31,6 +32,7 @@ void conv_RGB(uint8_t*src, uint8_t* dst, int x, int y, int width, int height, fl
 	int kr = 0;
 	int kc = 0;
 	float r = 0, g = 0, b = 0;
+	#pragma omp parallel for schedule
 	for (rr = x-1, kr = 0 ; rr <= x+1 ; rr++, kr++){
 		for (c = y-3, kc = 0 ; c <= y+3 ; c+=3, kc++){
 			if (width*rr+c >= 0){
@@ -48,14 +50,14 @@ void conv_RGB(uint8_t*src, uint8_t* dst, int x, int y, int width, int height, fl
 				// }
 				r += sumR;
 				// if (save[pixelG]){
-					// sumG = save[pixelG];
+				// 	sumG = save[pixelG];
 				// }
 				// else{
 					sumG = ((float)pixelG* kernel[kr][kc]);
 				// }
 				g += sumG;
 				// if (save[pixelB]){
-					// sumB = save[pixelB];
+				// 	sumB = save[pixelB];
 				// }
 				// else{
 					sumB = ((float)pixelB * kernel[kr][kc]);
@@ -77,6 +79,7 @@ void convolve_RGB(uint8_t* src, uint8_t* dst, int width, int height, int iter){
 	int y = 0;
 	int i = 0;
 	for (i = 0; i < iter; i++){
+		// #pragma omp parallel for schedule 
 		for (x = 0; x < height; x++){
 			for (y = 0; y < width; y++){
 				conv_RGB(src, dst, x, y*3, width*3, height, save);
@@ -101,7 +104,8 @@ void convolve_G(uint8_t* src, uint8_t*dst, int width, int height, int iter){
  	int x = 0;
 	int y = 0;
 	int i = 0;
-	for (i = 0; i < iter; i++){
+	for (i =0; i < iter; i++){
+		#pragma omp parallel for schedule collapse(4)
 		for (x = 0; x < height; x++){
 			for (y = 0; y < width; y++){
 				float total = 0;

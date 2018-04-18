@@ -16,7 +16,7 @@ int main(int argc, char** argv) {
 	setParams(argc, argv, &width, &height, &val, &iter);	
 
     uint8_t* src = stbi_load(argv[1], &width, &height, &bpp, val);
-	fprintf(stderr, "H:%d w:%d\n", height, width);
+	fprintf(stderr, "H:%d w:%d iterL%d \n", height, width, iter);
 	
 	uint8_t* dst= malloc(width*height*val);
 	

@@ -5,6 +5,6 @@
 #include <stdint.h>
 #include "serial.h"
 
-void setParams(int argc, char ** argv, int *width, int *height, int *val, int* iter);
+void setParams(int argc, char ** argv, int *width, int *height, int *val, int *iter);
 
 #endif
