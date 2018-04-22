@@ -40,26 +40,11 @@ void conv_RGB(uint8_t*src, uint8_t* dst, int x, int y, int width, int height, fl
 				float sumR =0;
 				float sumG = 0;
 				float sumB = 0;
-				// if (save[pixelR]){
-				// 	sumR = save[pixelR];
-				// }
-				// else{
-					sumR = ((float)pixelR* kernel[kr][kc]);
-				// }
+				sumR = ((float)pixelR* kernel[kr][kc]);
 				r += sumR;
-				// if (save[pixelG]){
-					// sumG = save[pixelG];
-				// }
-				// else{
-					sumG = ((float)pixelG* kernel[kr][kc]);
-				// }
+				sumG = ((float)pixelG* kernel[kr][kc]);
 				g += sumG;
-				// if (save[pixelB]){
-					// sumB = save[pixelB];
-				// }
-				// else{
-					sumB = ((float)pixelB * kernel[kr][kc]);
-				// }
+				sumB = ((float)pixelB * kernel[kr][kc]);
 				b += sumB;
 			}
 		}
@@ -86,7 +71,7 @@ void convolve_RGB(uint8_t* src, uint8_t* dst, int width, int height, int iter){
 }
 
 
-void convolve_G(uint8_t* src, uint8_t*dst, int width, int height, int iter){
+void convolve_G(uint8_t* src, uint8_t*dst, int width, int height){
 	float div = 9;
     //float kernel[3][3] = {{0/div, 0/div, 0/div}, {0/div, 1/div, 0/div}, {0/div, 0/div, 0/div}};
     float kernel[3][3] = {{1/div, 1/div, 1/div}, {1/div, 1/div, 1/div}, {1/div, 1/div, 1/div}};
@@ -101,7 +86,7 @@ void convolve_G(uint8_t* src, uint8_t*dst, int width, int height, int iter){
  	int x = 0;
 	int y = 0;
 	int i = 0;
-	for (i = 0; i < iter; i++){
+//	for (i = 0; i < iter; i++){
 		for (x = 0; x < height; x++){
 			for (y = 0; y < width; y++){
 				float total = 0;
@@ -109,14 +94,7 @@ void convolve_G(uint8_t* src, uint8_t*dst, int width, int height, int iter){
 					for (c = y-3, kc = 0 ; c <= y+3 ; c+=3, kc++){
 						if (width*r+c >= 0){
 							int pixel = src[width*r+c];
-							float sum = 0;
-							// if (!save[pixel]){
-								sum =  ((float)pixel* kernel[kr][kc]);
-							// 	save[pixel] = sum;
-							// }
-							// else{
-							// 	sum = save[pixel];
-							// }
+							float sum =  ((float)pixel* kernel[kr][kc]);
 							total += sum;
 						}
 					}
@@ -124,7 +102,7 @@ void convolve_G(uint8_t* src, uint8_t*dst, int width, int height, int iter){
 				dst[width * x + y] = total;
 			}
 		}
-	}
+//	}
 }
 
 int start_position(int N, int P, int i) {
