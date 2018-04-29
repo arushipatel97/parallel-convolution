@@ -1,11 +1,8 @@
-conv: main.o serial.o 
-	nvcc -o conv main.o serial.o -O3 -lfftw3 -lm
+conv: main.o  
+	gcc -o conv main.o -fopenmp -O3 -lfftw3 -lm
 
 main.o: main.c 
-	gcc -c main.c -L -03
-
-serial.o: serial.c
-	gcc -c serial.c -O3
+	gcc -c main.c -L  -03
 
 clean:
 	\rm -f *.o conv
