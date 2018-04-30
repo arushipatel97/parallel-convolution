@@ -4,85 +4,182 @@
 #include "cudaFunc.h"
 
 
-__global__ void convolveGray(uint8_t *src, uint8_t *dst, int width, int height) {
-	__shared__ int save[256];
+__global__ void convolveGray(uint8_t *src, uint8_t *dst, uint8_t *tmp,int width, int height) {
+	__shared__ int save[17][17];
+	__shared__ int save1[17][17];
 
 	int r, c, kr, kc;
-	// float kernel[3][3] = {{0, 0, 0}, {0, 1, 0}, {0, 0, 0}};
-	float kernel[3][3] = {{0, -1, 0}, {-1, 5, -1}, {0, -1, 0}};
+	float row_k[3]={1,2,1};
+	float col_k[3]={-1,0,1};
 	
 	size_t x = blockIdx.x*blockDim.x + threadIdx.x;
 	size_t y = blockIdx.y*blockDim.y + threadIdx.y;
+	//row convolution filter
 
+	if (0 < x && x < height && 0 < y && y < width) {
+		save[threadIdx.x][threadIdx.y]= src[x*width+y];
+		save1[threadIdx.x][threadIdx.y]= tmp[x*width+y];
+	}
+
+	__syncthreads();
+
+	int pixel = 0;
+	int i = 0;
+	int j = 0;
 	//bounds check
 	if (0 < x && x < height && 0 < y && y < width) {
 		float total = 0;
-		for (r = x-1, kr = 0 ; r <= x+1 ; r++, kr++){
-			for (c = y-1, kc = 0 ; c <= y+1 ; c++, kc++){
-				float sum = 0;
-				int pixel = src[width * r + c]; 
-				if (save[pixel]){
-					sum = save[pixel];
-				}
-				else{
-					sum = pixel  * kernel[kr][kc] / 1.0;
-				}
-				total += sum;
-			}
-		}
+
+		r = x-1;
+		kr = 0;
+		i = r-(blockIdx.x*blockDim.x);
+		pixel = save[i][threadIdx.y];
+		//pixel = src[width * r+y]; 
+		total += pixel  * row_k[kr] / 1.0;
+
+		r = x;
+		kr = 1;
+		i = r-(blockIdx.x*blockDim.x);
+		pixel = save[i][threadIdx.y];
+		// pixel = src[width * r+y]; 
+		total += pixel  * row_k[kr] / 1.0;
+
+		r = x+1;
+		kr = 2;
+		i = r-(blockIdx.x*blockDim.x);
+		pixel = save[i][threadIdx.y];
+		// pixel = src[width * r+y]; 
+		total += pixel  * row_k[kr] / 1.0;
+		tmp[width * x + y] = total;
+	}
+	//column convolution filter
+	if (0 < x && x < height && 0 < y && y < width) {
+		float total = 0;
+		c = y-1;
+		kc = 0;
+		j = c-(blockIdx.y*blockDim.y);
+		pixel = save1[threadIdx.x][c];
+		// pixel = tmp[width * x + c]; 
+		total += pixel  * col_k[kc] / 1.0;
+
+		c = y;
+		kc = 1;
+		j = c-(blockIdx.y*blockDim.y);
+		pixel = save1[threadIdx.x][c];
+		// pixel = tmp[width * x + c]; 
+		total += pixel  * col_k[kc] / 1.0;
+
+		c = y+1;
+		kc = 2;
+		j = c-(blockIdx.y*blockDim.y);
+		pixel = save1[threadIdx.x][c];
+		// pixel = tmp[width * x + c]; 
+		total += pixel  * col_k[kc] / 1.0;
+	
 		dst[width * x + y] = total;
 	}
 }
 
-__global__ void convolveRGB(uint8_t *src, uint8_t *dst, int width, int height) {
+__global__ void convolveRGB(uint8_t *src, uint8_t *dst, uint8_t *tmp, int width, int height) {
 	int rr = 0;
 	int c = 0;
 	int kc = 0;
 	int kr = 0;
-	__shared__ int save[256];
+	__shared__ uint8_t save[32][32*3];
+	__shared__ uint8_t save1[32][32*3];
 
-	//float kernel[3][3] = {{0, 0, 0}, {0, 1, 0}, {0, 0, 0}};
-	// int kernel[3][3] = {{1, 2, 1}, {2, 4, 2}, {1, 2, 1}};
-	float kernel[3][3] = {{0, -1, 0}, {-1, 5, -1}, {0, -1, 0}};
-
+	float row_k[3]={1,2,1};
+	float row_c[3]={-1,0,1};
 	size_t x = blockIdx.x*blockDim.x + threadIdx.x;
 	size_t y = blockIdx.y*blockDim.y + threadIdx.y;
 
+	if (0 < x && x < height && 0 < y && y < 3*width) {
+		save[threadIdx.x][threadIdx.y]= src[(x*width*3)+y];
+		save1[threadIdx.x][threadIdx.y]= tmp[(x*width*3)+y];
+	}
+
+	__syncthreads();
+
+	int pixelR = 0;
+	int pixelG = 0;
+	int pixelB = 0;
+	rr = x-1;
+	kr = 0;
+	int i = 0;
+	int j = 0;
 	//bounds check
 	if (0 < x && x < height && 0 < y && y < 3*width) {
 		float r = 0, g = 0, b = 0;
-		for (rr = x-1, kr = 0 ; rr <= x+1 ; rr++, kr++) {
-			for (c = (y*3)-3, kc = 0 ; c <= (y*3)+3 ; c+=3, kc++) {
-				float sumR = 0;
-				float sumG = 0;
-				float sumB = 0;
+		rr = x-1;
+		kr = 0;
+		i = rr-(blockIdx.x*blockDim.x);
+		pixelR = save[i][(1*y)];
+		pixelG = save[i][(1*y)+1];
+		pixelB = save[i][(1*y)+2];
 
-				int pixelR = src[(width*3) * rr + c];
-				if (save[pixelR]){
-					sumR = save[pixelR];
-				}else{
-					sumR = pixelR * kernel[kr][kc] /1.0;
-				}
-				r += sumR;
+		r += pixelR * row_k[kr] /1.0;
+		g += pixelG * row_k[kr]/1.0;
+		b += pixelB* row_k[kr]/1.0;	
 
-				int pixelG = src[(width*3) * rr + c+1];
-				if (save[pixelG]){
-					sumG = save[pixelG];
-				}else{
-					sumG = pixelG * kernel[kr][kc] /1.0;
-				}
-				g += sumG;
+		rr = x;
+		kr = 1;
+		i = rr-(blockIdx.x*blockDim.x);
+		pixelR = save[i][(1*y)];
+		pixelG = save[i][(1*y)+1];
+		pixelB = save[i][(1*y)+2];
 
-				int pixelB = src[(width*3) * rr + c+2];
-				if (pixelB){
-					sumB = save[pixelB];
-				}
-				else{
-					sumB = pixelB* kernel[kr][kc] /1.0;
-				}
-				b += sumB;				 
-			}
-		}
+		r += pixelR * row_k[kr] /1.0;
+		g += pixelG * row_k[kr]/1.0;
+		b += pixelB* row_k[kr]/1.0;	
+
+		rr = x+1;
+		kr = 2;
+		i = rr-(blockIdx.x*blockDim.x);
+		pixelR = save[i][(1*y)];
+		pixelG = save[i][(1*y)+1];
+		pixelB = save[i][(1*y)+2];
+
+		r += pixelR * row_k[kr] /1.0;
+		g += pixelG * row_k[kr]/1.0;
+		b += pixelB* row_k[kr]/1.0;		
+
+		
+		tmp[width*3 * x + (y*3)] = r;
+		tmp[width*3 * x + (y*3)+1] = g;
+		tmp[width*3 * x + (y*3)+2] = b;
+	}
+	if (0 < x && x < height && 0 < y && y < 3*width) {
+		float r = 0, g = 0, b = 0;
+		c = (y*3)-3;
+		kc = 0;
+		j = c-(blockIdx.y*blockDim.y);
+		pixelR = save1[threadIdx.x][c];
+		pixelG = save1[threadIdx.x][c+1];
+		pixelB = save1[threadIdx.x][c+2];
+		r += pixelR * row_c[kc] /1.0;
+		g += pixelG * row_c[kc]/1.0;
+		b += pixelB* row_c[kc]/1.0;		
+
+		c = (y*3);
+		kc = 1;
+		j = c-(blockIdx.y*blockDim.y);
+		pixelR = save1[threadIdx.x][c];
+		pixelG = save1[threadIdx.x][c+1];
+		pixelB = save1[threadIdx.x][c+2];
+		r += pixelR * row_c[kc] /1.0;
+		g += pixelG * row_c[kc]/1.0;
+		b += pixelB* row_c[kc]/1.0;	
+
+		c = (y*3)+3;
+		kc = 2;
+		j = c-(blockIdx.y*blockDim.y);
+		pixelR = save1[threadIdx.x][c];
+		pixelG = save1[threadIdx.x][c+1];
+		pixelB = save1[threadIdx.x][c+2];
+		r += pixelR * row_c[kc] /1.0;
+		g += pixelG * row_c[kc]/1.0;
+		b += pixelB* row_c[kc]/1.0;	
+
 		dst[width*3 * x + (y*3)] = r;
 		dst[width*3 * x + (y*3)+1] = g;
 		dst[width*3 * x + (y*3)+2] = b;
@@ -95,7 +192,9 @@ extern "C" void gpuConvolve(uint8_t *src, int width, int height, int val, size_t
     cudaMalloc(&gpuSrc, bytes * sizeof(uint8_t));
     uint8_t *gpuDst;
     cudaMalloc(&gpuDst, bytes * sizeof(uint8_t));
-
+	uint8_t *gpuTmp;
+    cudaMalloc(&gpuTmp, bytes * sizeof(uint8_t));
+    
     cudaMemcpy(gpuSrc, src, bytes, cudaMemcpyHostToDevice); 
 	const int blockSize = 16; //multiple of warp
 
@@ -112,7 +211,7 @@ extern "C" void gpuConvolve(uint8_t *src, int width, int height, int val, size_t
 			} 
 			dim3 grid(gx, gy);
 			dim3 block(blockSize, blockSize);
-			convolveGray<<<grid, block>>>(gpuSrc, gpuDst, width, height);
+			convolveGray<<<grid, block>>>(gpuSrc, gpuDst,gpuTmp, width, height);
 		} else {
 			int gx = height/blockSize;
 			if (height%blockSize != 0){
@@ -124,7 +223,7 @@ extern "C" void gpuConvolve(uint8_t *src, int width, int height, int val, size_t
 			}
 			dim3 grid(gx, gy);
 			dim3 block(blockSize, blockSize);
-			convolveRGB<<<grid, block>>>(gpuSrc, gpuDst, width, height);
+			convolveRGB<<<grid, block>>>(gpuSrc, gpuDst, gpuTmp,width, height);
 		}
 	}
     cudaThreadSynchronize();
@@ -132,4 +231,5 @@ extern "C" void gpuConvolve(uint8_t *src, int width, int height, int val, size_t
 
     cudaFree(gpuDst);
     cudaFree(gpuSrc);
+    cudaFree(gpuTmp);
 }
